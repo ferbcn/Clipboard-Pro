@@ -4,15 +4,15 @@
 """
 Clipboard Pro - Enhanced clipboard management with python
 Dependencies: PyQt5 (GUI)
-Author: ferbcn
+Author: Fernando Garcia Winterling
 
 """
 
 import sys
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import (QWidget, QPushButton,
-                             QHBoxLayout, QVBoxLayout, QListWidget, QMainWindow, QSplitter, QFileDialog, QMessageBox, QInputDialog, QLineEdit)
-from PyQt5.QtCore import QTimer, QSize
+                             QHBoxLayout, QVBoxLayout, QListWidget, QMainWindow, QSplitter, QFileDialog, QInputDialog, QLineEdit)
+from PyQt5.QtCore import QTimer
 from PyQt5.Qt import QApplication
 
 
@@ -55,7 +55,7 @@ class Example(QWidget):
         self.clipboard.setAlternatingRowColors(True)
         self.clipboard.setFocusPolicy(1) #remove blue frame when window is selected yeaaaah!
 
-        # define layout: a horizontal box with two buttons in it
+        # define layout: a horizontal box with three buttons in it
         hbox = QHBoxLayout()
         hbox.addWidget(delButton)
         hbox.addWidget(saveButton)
@@ -115,7 +115,6 @@ class Example(QWidget):
 
     def addItem(self):
         newClip = self.CB.text()
-        #print(newClip)
         if newClip == self.lastClip:
             pass
         else:
