@@ -4,7 +4,7 @@
 """
 Clipboard Pro - Enhanced clipboard management with python
 Dependencies: PyQt5 (GUI)
-Author: Fernando Garcia Winterling
+Author: ferbcn
 
 """
 
@@ -114,7 +114,6 @@ class Example(QWidget):
             text_file.close()
 
     def addItem(self):
-
         newClip = self.CB.text()
         #print(newClip)
         if newClip == self.lastClip:
@@ -124,7 +123,6 @@ class Example(QWidget):
             self.lastClip = newClip
 
     def selectItem(self):
-
         items = self.clipboard.selectedItems()
         text2clip = ''
         for item in items:
