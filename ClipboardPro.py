@@ -9,18 +9,23 @@ Author: Fernando Garcia Winterling
 """
 
 import sys
-from PyQt5 import QtCore
+from PyQt5 import QtCore, QtGui
 from PyQt5.QtWidgets import (QWidget, QPushButton,
                              QHBoxLayout, QVBoxLayout, QListWidget, QMainWindow, QSplitter, QFileDialog, QInputDialog, QLineEdit)
 from PyQt5.QtCore import QTimer
 from PyQt5.Qt import QApplication
 
 
-class Example(QWidget):
+class Clipboard(QWidget):
 
     def __init__(self):
         super().__init__()
         QMainWindow.__init__(self, None, QtCore.Qt.WindowStaysOnTopHint)
+        self.bg_col = "#404040"
+        self.color_odd = '#aa88aa'
+        self.color_even = '#778899'
+        self.font_size = 14
+
         self.initUI()
 
     def initUI(self):
@@ -34,8 +39,9 @@ class Example(QWidget):
         self.screenW, self.screenH = screen_resolution.width(), screen_resolution.height()
 
         # set position
-        self.setGeometry(self.screenW * 0.9, 0, self.screenW * 0.1, self.screenH * 0.3)
+        self.setGeometry(int(self.screenW * 0.9), int(0), int(self.screenW * 0.1), int(self.screenH * 0.3))
         self.setWindowTitle('Clipboard Pro')
+        #self.setStyleSheet("background-color: {}; color: {}; font-size: {}pt;".format(self.bg_col, self.color_odd, self.font_size))
 
         # create widgets
         delButton = QPushButton("Delete")
@@ -47,19 +53,28 @@ class Example(QWidget):
         clrButton = QPushButton("Reset")
         clrButton.setMinimumHeight(20)
         clrButton.setMaximumWidth(90)
+        plusButton = QPushButton("+")
+        plusButton.setMinimumHeight(20)
+        plusButton.setMaximumWidth(40)
+        minButton = QPushButton("-")
+        minButton.setMinimumHeight(20)
+        minButton.setMaximumWidth(40)
         splitter = QSplitter(self)
 
         self.clipboard = QListWidget()
-        self.clipboard.setMinimumHeight(self.screenH * 0.05)
-        self.clipboard.setMinimumWidth(self.screenW * 0.1)
-        self.clipboard.setAlternatingRowColors(True)
+        self.clipboard.setMinimumHeight(int(self.screenH * 0.05))
+        self.clipboard.setMinimumWidth(int(self.screenW * 0.1))
+        #self.clipboard.setAlternatingRowColors(True)
         self.clipboard.setFocusPolicy(1) #remove blue frame when window is selected yeaaaah!
+        self.clipboard.setStyleSheet("background-color: {}; color: {}; font-size: {}pt;".format(self.bg_col, self.color_odd, self.font_size))
 
         # define layout: a horizontal box with three buttons in it
         hbox = QHBoxLayout()
         hbox.addWidget(delButton)
         hbox.addWidget(saveButton)
         hbox.addWidget(clrButton)
+        hbox.addWidget(plusButton)
+        hbox.addWidget(minButton)
         hbox.setContentsMargins(0, 0, 0, 0)
 
         # a vertical box with the clipboard and the horizontal box in it
@@ -78,6 +93,8 @@ class Example(QWidget):
         saveButton.clicked.connect(self.saveList)
         self.clipboard.clicked.connect(self.selectItem)
         self.clipboard.doubleClicked.connect(self.editItem)
+        plusButton.clicked.connect(self.increase_font)
+        minButton.clicked.connect(self.decrease_font)
 
         #create instance of system clipboard
         self.CB = QApplication.clipboard()
@@ -91,6 +108,16 @@ class Example(QWidget):
         timer0.start(200)
 
         self.show()
+
+    def increase_font(self):
+        if self.font_size < 48:
+            self.font_size += 2
+        self.clipboard.setStyleSheet("background-color: {}; color: {}; font-size: {}pt;".format(self.bg_col, self.color_odd, self.font_size))
+
+    def decrease_font(self):
+        if self.font_size > 6:
+            self.font_size -= 2
+        self.clipboard.setStyleSheet("background-color: {}; color: {}; font-size: {}pt;".format(self.bg_col, self.color_odd, self.font_size))
 
     def editItem(self):
         items = self.clipboard.selectedItems()
@@ -119,6 +146,9 @@ class Example(QWidget):
             pass
         else:
             self.clipboard.insertItem(0, newClip)
+            if not len(self.clipboard) % 2:
+                color = QtGui.QColor(self.color_even)
+                self.clipboard.item(0).setForeground(QtGui.QBrush(color))
             self.lastClip = newClip
 
     def selectItem(self):
@@ -135,14 +165,21 @@ class Example(QWidget):
             return
         for item in listItems:
             self.clipboard.takeItem(self.clipboard.row(item))
+        self.draw_rows()
+
+    def draw_rows(self):
+        # give rows correct alternating colors
+        for row_num in range(self.clipboard.count()):
+            if row_num % 2:
+                color = QtGui.QColor(self.color_even)
+            else:
+                color = QtGui.QColor(self.color_odd)
+            self.clipboard.item(row_num).setForeground(QtGui.QBrush(color))
 
     def clearList(self):
-        self.clipboard.setCurrentItem(self.clipboard.item(0))
-        for i in range(self.clipboard.count()):
-            self.deleteItem()
-
+        self.clipboard.clear()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    ex = Example()
+    ex = Clipboard()
     sys.exit(app.exec_())
