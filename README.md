@@ -1,4 +1,4 @@
-# Clipboard-Pro
+## Clipboard-Pro
 gui clipboard history tool 
 
 # Dependencies
@@ -7,6 +7,7 @@ gui clipboard history tool
 # Functionality
 - select clip from history
 - edit clip (double-click)
-- reset whole history
 - delete single clip
+- reset clipboard history
 - save to .txt 
+- variable font size
