@@ -1,10 +1,10 @@
-## Clipboard-Pro
+# Clipboard-Pro
 gui clipboard history tool 
 
-# Dependencies
+## Dependencies
 - PyQt5
 
-# Functionality
+## Functionality
 - select clip from history
 - edit clip (double-click)
 - delete single clip
