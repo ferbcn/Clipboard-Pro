@@ -9,18 +9,53 @@ Author: Fernando Garcia Winterling
 """
 
 import sys
-from PyQt5 import QtCore, QtGui
-from PyQt5.QtWidgets import (QWidget, QPushButton,
-                             QHBoxLayout, QVBoxLayout, QListWidget, QMainWindow, QSplitter, QFileDialog, QInputDialog, QLineEdit)
-from PyQt5.QtCore import QTimer
-from PyQt5.Qt import QApplication
+from PyQt6 import QtCore, QtGui
+from PyQt6.QtGui import QIcon, QScreen
+from PyQt6.QtWidgets import (QWidget, QPushButton,
+                             QHBoxLayout, QVBoxLayout, QListWidget, QMainWindow, QSplitter, QFileDialog, QInputDialog,
+                             QLineEdit, QApplication)
+from PyQt6.QtCore import QTimer
+
+from PyQt6.QtWidgets import QSystemTrayIcon, QMenu
+
+
+class SystemTrayIcon(QSystemTrayIcon):
+    def __init__(self, icon, parent=None):
+        QSystemTrayIcon.__init__(self, icon, parent)
+        self.parent = parent
+        self.icon = icon
+        self.menu = QMenu(parent)
+        self.setIcon(icon)
+        self.setVisible(True)
+
+        self.last_content = ""
+
+        show = self.menu.addAction("Last Clip")
+        show.triggered.connect(self.show_mes)
+        showAction = self.menu.addAction("Show")
+        showAction.triggered.connect(self.show_action)
+        exitAction = self.menu.addAction("Exit")
+        exitAction.triggered.connect(self.exit_action)
+        self.setContextMenu(self.menu)
+        self.setToolTip("ClipboardPro")
+
+    def show_mes(self):
+        self.showMessage("ClipboardPro", f"{self.last_content}", self.icon, 2000)
+
+    def show_action(self):
+        self.parent.close()
+        self.parent.show()
+
+    def exit_action(self):
+        self.parent.close()
+        sys.exit()
 
 
 class Clipboard(QWidget):
 
     def __init__(self):
         super().__init__()
-        QMainWindow.__init__(self, None, QtCore.Qt.WindowStaysOnTopHint)
+        QMainWindow.__init__(self, None, QtCore.Qt.WindowType.WindowStaysOnTopHint)
         self.bg_col = "#404040"
         self.color_odd = '#aa88aa'
         self.color_even = '#778899'
@@ -30,13 +65,18 @@ class Clipboard(QWidget):
 
     def initUI(self):
 
+        # Create the icon
+        icon = QIcon("icon_bw_s.png")
+        self.tray_icon = SystemTrayIcon(icon, parent=self)
+
+
         self.lastClip = ''
 
         self.setWindowTitle('Clipboard Pro')
 
         # get screen size and set app size
-        screen_resolution = app.desktop().screenGeometry()
-        self.screenW, self.screenH = screen_resolution.width(), screen_resolution.height()
+        # screen_resolution = QScreen.availableGeometry(self)
+        self.screenW, self.screenH = 2600, 1200
 
         # set position
         self.setGeometry(int(self.screenW * 0.9), int(0), int(self.screenW * 0.1), int(self.screenH * 0.3))
@@ -65,7 +105,7 @@ class Clipboard(QWidget):
         self.clipboard.setMinimumHeight(int(self.screenH * 0.05))
         self.clipboard.setMinimumWidth(int(self.screenW * 0.1))
         #self.clipboard.setAlternatingRowColors(True)
-        self.clipboard.setFocusPolicy(1) #remove blue frame when window is selected yeaaaah!
+        # self.clipboard.setFocusPolicy(1) #remove blue frame when window is selected yeaaaah!
         self.clipboard.setStyleSheet("background-color: {}; color: {}; font-size: {}pt;".format(self.bg_col, self.color_odd, self.font_size))
 
         # define layout: a horizontal box with three buttons in it
@@ -122,7 +162,8 @@ class Clipboard(QWidget):
     def editItem(self):
         items = self.clipboard.selectedItems()
         text2edit = items[0].text()
-        text, okPressed = QInputDialog.getText(self, "Get text", "Edit Clip:", QLineEdit.Normal, text2edit)
+        # text, okPressed = QInputDialog.getText(self, "Get text", "Edit Clip:", QLineEdit., text2edit)
+        text, okPressed = QInputDialog.getText(self, "Get text", "Edit Clip:", text=text2edit)
         if okPressed and text != '':
             items[0].setText(text)
             self.selectItem()
@@ -150,13 +191,14 @@ class Clipboard(QWidget):
                 color = QtGui.QColor(self.color_even)
                 self.clipboard.item(0).setForeground(QtGui.QBrush(color))
             self.lastClip = newClip
+            self.tray_icon.last_content = newClip
 
     def selectItem(self):
         items = self.clipboard.selectedItems()
         text2clip = ''
         for item in items:
             text2clip += item.text()
-            self.CB.setText(text2clip, 0)
+            self.CB.setText(text2clip)
         self.lastClip = text2clip
 
     def deleteItem(self):
@@ -181,5 +223,6 @@ class Clipboard(QWidget):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)
     ex = Clipboard()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
