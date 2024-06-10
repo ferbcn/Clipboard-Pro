@@ -2,7 +2,7 @@
 gui clipboard history tool 
 
 ## Dependencies
-- PyQt5
+- PyQt6
 
 ## Functionality
 - select clip from history
