@@ -37,7 +37,7 @@ class ImageListWidgetItem(QListWidgetItem):
                 thumbnail = pixmap.scaled(64, 64, QtCore.Qt.AspectRatioMode.KeepAspectRatio, 
                                         QtCore.Qt.TransformationMode.SmoothTransformation)
                 self.setIcon(QIcon(thumbnail))
-                self.setText(f"[Image] {os.path.basename(image_path)}")
+                #self.setText(f"[Image] {os.path.basename(image_path)}")
             else:
                 self.setText(f"[Image] {text}")
         else:
@@ -102,7 +102,7 @@ class Clipboard(QWidget):
     def initUI(self):
 
         # Create the icon
-        icon = QIcon("icon_bw_s.png")
+        icon = QIcon("icon_s.png")
         self.tray_icon = SystemTrayIcon(icon, parent=self)
 
         self.lastClip = ''
