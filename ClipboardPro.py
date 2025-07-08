@@ -13,13 +13,32 @@ import os
 import uuid
 from datetime import datetime
 from PyQt6 import QtCore, QtGui
-from PyQt6.QtGui import QIcon, QScreen, QPixmap, QImage
+from PyQt6.QtGui import QIcon, QPixmap, QImage
 from PyQt6.QtWidgets import (QWidget, QPushButton,
                              QHBoxLayout, QVBoxLayout, QListWidget, QMainWindow, QSplitter, QFileDialog, QInputDialog,
-                             QLineEdit, QApplication, QListWidgetItem)
-from PyQt6.QtCore import QTimer, QSize, QCryptographicHash, QBuffer
+                             QApplication, QListWidgetItem)
+from PyQt6.QtCore import QTimer, QSize
 
 from PyQt6.QtWidgets import QSystemTrayIcon, QMenu
+
+
+def get_system_theme():
+    """Detect system theme and return 'dark' or 'light'"""
+    app = QApplication.instance()
+    if app is None:
+        return 'dark'  # Default to dark theme
+    
+    # Get the application's palette
+    palette = app.palette()
+    background_color = palette.color(QtGui.QPalette.ColorRole.Window)
+    
+    # Calculate luminance to determine if it's dark or light
+    # Using the standard luminance formula: 0.299*R + 0.587*G + 0.114*B
+    luminance = (0.299 * background_color.red() + 
+                 0.587 * background_color.green() + 
+                 0.114 * background_color.blue()) / 255
+    
+    return 'dark' if luminance < 0.5 else 'light'
 
 
 class ImageListWidgetItem(QListWidgetItem):
@@ -96,17 +115,45 @@ class Clipboard(QWidget):
         self.images_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "clipboard_images")
         if not os.path.exists(self.images_dir):
             os.makedirs(self.images_dir)
+        else:
+            # Clean up old image files on startup
+            self.cleanup_old_images()
 
         self.initUI()
 
     def initUI(self):
 
-        # Create the icon
-        icon = QIcon("icon_s.png")
-        self.tray_icon = SystemTrayIcon(icon, parent=self)
+        # Create the icon based on system theme
+        theme = get_system_theme()
+        print(f"Detected system theme: {theme}")
+        if theme == 'dark':
+            icon_path = "icon_wb_s.png"  # Light theme: white background, black icon
+        else:
+            icon_path = "icon_bw_s.png"  # Dark theme: black background, white icon
+        
+        icon = QIcon(icon_path)
+        
+        # Check if icon loaded successfully
+        if icon.isNull():
+            print(f"Warning: Could not load icon file '{icon_path}'")
+            # Try the other icon as fallback
+            fallback_path = "icon_wb_s.png" if theme == 'dark' else "icon_bw_s.png"
+            icon = QIcon(fallback_path)
+            if icon.isNull():
+                print(f"Warning: Could not load fallback icon file '{fallback_path}'")
+                # Try to create a default icon
+                icon = QIcon()
+        
+        # Check if system tray is supported
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            print("System tray is not available on this system")
+            self.tray_icon = None
+        else:
+            self.tray_icon = SystemTrayIcon(icon, parent=self)
 
         self.lastClip = ''
         self.lastImageHash = None
+        self.lastMimeDataHash = None  # Track MIME data changes
 
         self.setWindowTitle('Clipboard Pro')
 
@@ -178,15 +225,44 @@ class Clipboard(QWidget):
         #create instance of system clipboard
         self.CB = QApplication.clipboard()
 
-        # timer to check for new content on clipboard
-        # TODO: make this happen without timer
-#        self.CB.dataChanged.connect(self.addItem) #DOES NOT WORK???
+        # Use clipboard change signal instead of timer for better performance
+        self.CB.dataChanged.connect(self.onClipboardChanged)
 
+        # Fallback timer with much longer interval for edge cases
         timer0 = QTimer(self)
-        timer0.timeout.connect(self.addItem)
-        timer0.start(200)
+        timer0.timeout.connect(self.checkClipboardChanges)
+        timer0.start(1000)  # Check every 5 seconds instead of 200ms
 
         self.show()
+
+    def onClipboardChanged(self):
+        """Handle clipboard changes via signal (more efficient than polling)"""
+        self.addItem()
+
+    def checkClipboardChanges(self):
+        """Fallback method to check for clipboard changes (less frequent)"""
+        # Only check if we haven't detected changes via signal
+        newClip = self.CB.text()
+        mimeData = self.CB.mimeData()
+        
+        # Simple hash of MIME data to detect changes
+        mime_hash = self._getMimeDataHash(mimeData)
+        
+        if (newClip != self.lastClip and newClip.strip()) or mime_hash != self.lastMimeDataHash:
+            self.addItem()
+
+    def _getMimeDataHash(self, mimeData):
+        """Create a simple hash of MIME data to detect changes efficiently"""
+        if mimeData.hasImage():
+            # For images, use a simpler approach - just check if image exists
+            image = self.CB.image()
+            if not image.isNull():
+                # Use image size and format as a simple hash
+                return f"{image.width()}_{image.height()}_{image.format()}"
+        elif mimeData.hasText():
+            # For text, use the text itself as hash
+            return mimeData.text()
+        return ""
 
     def increase_font(self):
         if self.font_size < 48:
@@ -240,17 +316,15 @@ class Clipboard(QWidget):
         mimeData = self.CB.mimeData()
         hasImage = mimeData.hasImage()
         
+        # Update MIME data hash
+        mime_hash = self._getMimeDataHash(mimeData)
+        
         if hasImage:
             # Get image from clipboard
             image = self.CB.image()
             if not image.isNull():
-                # Create a more reliable hash of the image data to detect changes
-                # Convert image to bytes and create a hash
-                buffer = QtCore.QBuffer()
-                buffer.open(QtCore.QBuffer.OpenModeFlag.WriteOnly)
-                image.save(buffer, "PNG")
-                image_data = buffer.data()
-                image_hash = str(QtCore.QCryptographicHash.hash(image_data, QtCore.QCryptographicHash.Algorithm.Md5).toHex())
+                # Use simpler hash method for better performance
+                image_hash = f"{image.width()}_{image.height()}_{image.format()}"
                 
                 if image_hash != self.lastImageHash:
                     # Save image to file
@@ -269,7 +343,9 @@ class Clipboard(QWidget):
                             item.setForeground(QtGui.QBrush(color))
                         
                         self.lastImageHash = image_hash
-                        self.tray_icon.last_content = f"[Image] {image_filename}"
+                        self.lastMimeDataHash = mime_hash
+                        if self.tray_icon:
+                            self.tray_icon.last_content = f"[Image] {image_filename}"
         
         elif newClip != self.lastClip and newClip.strip():
             # Handle text content
@@ -281,7 +357,9 @@ class Clipboard(QWidget):
                 item.setForeground(QtGui.QBrush(color))
             
             self.lastClip = newClip
-            self.tray_icon.last_content = newClip
+            self.lastMimeDataHash = mime_hash
+            if self.tray_icon:
+                self.tray_icon.last_content = newClip
 
     def selectItem(self):
         items = self.clipboard.selectedItems()
@@ -297,11 +375,7 @@ class Clipboard(QWidget):
                 if not image.isNull():
                     self.CB.setImage(image)
                     # Update the hash using the same method as addItem
-                    buffer = QtCore.QBuffer()
-                    buffer.open(QtCore.QBuffer.OpenModeFlag.WriteOnly)
-                    image.save(buffer, "PNG")
-                    image_data = buffer.data()
-                    self.lastImageHash = str(QtCore.QCryptographicHash.hash(image_data, QtCore.QCryptographicHash.Algorithm.Md5).toHex())
+                    self.lastImageHash = f"{image.width()}_{image.height()}_{image.format()}"
         else:
             # Handle text content
             text2clip = item.get_content()
@@ -345,6 +419,20 @@ class Clipboard(QWidget):
                     pass  # Ignore errors when deleting files
         
         self.clipboard.clear()
+
+    def cleanup_old_images(self):
+        """Clean up old image files from the clipboard_images directory"""
+        try:
+            for filename in os.listdir(self.images_dir):
+                if filename.startswith("clipboard_image_") and filename.endswith(".png"):
+                    file_path = os.path.join(self.images_dir, filename)
+                    try:
+                        os.remove(file_path)
+                        print(f"Cleaned up old image: {filename}")
+                    except OSError as e:
+                        print(f"Could not remove {filename}: {e}")
+        except OSError as e:
+            print(f"Error cleaning up images directory: {e}")
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
